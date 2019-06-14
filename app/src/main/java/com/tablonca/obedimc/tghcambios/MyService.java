@@ -32,12 +32,12 @@ public class MyService extends FirebaseMessagingService {
     }
 
     private void sendNotification(RemoteMessage remoteMessage) {
-        String descStr = remoteMessage.getData().get(NUEVA_TASA);
-        float desc = Float.valueOf(descStr != null ? descStr : "0");
+        String ntStr = remoteMessage.getData().get(NUEVA_TASA);
+        float nt = Float.valueOf(ntStr != null ? ntStr : "0");
 
 
         Intent intent = new Intent(this, WebActivity.class);
-        intent.putExtra(NUEVA_TASA, desc);
+        intent.putExtra(NUEVA_TASA, nt);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent,
@@ -59,26 +59,26 @@ public class MyService extends FirebaseMessagingService {
                     .setContentIntent(pendingIntent);
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                notificationBuilder.setColor(desc > .4 ?
+                notificationBuilder.setColor(nt > .4 ?
                         ContextCompat.getColor(getApplicationContext(), R.color.colorPrimary) :
                         ContextCompat.getColor(getApplicationContext(), R.color.colorAccent));
             }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 String channelId = null;
-                if (desc == 1) {
+                if (nt == 1) {
                     channelId = getString(R.string.peru_channel_id);
-                } else if (desc == 2) {
+                } else if (nt == 2) {
                     channelId = getString(R.string.colombia_channel_id);
-                } else if (desc == 3) {
+                } else if (nt == 3) {
                     channelId = getString(R.string.ecuador_channel_id);
                 }
                 String channelName = null;
-                if (desc == 1) {
+                if (nt == 1) {
                     channelName = getString(R.string.peru_channel_name);
-                } else if (desc == 2) {
+                } else if (nt == 2) {
                     channelName = getString(R.string.colombia_channel_name);
-                } else if (desc == 3) {
+                } else if (nt == 3) {
                     channelName = getString(R.string.ecuador_channel_name);
                 }
                 NotificationChannel channel = new NotificationChannel(channelId, channelName,
