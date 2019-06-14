@@ -1,3 +1,9 @@
 <resources>
     <string name="app_name">TGH Cambios</string>
+    <string name="peru_channel_id">channel.id.notification.peru</string>
+    <string name="peru_channel_name">Perú</string>
+    <string name="colombia_channel_id">channel.id.notification.colombia</string>
+    <string name="colombia_channel_name">Colombia</string>
+    <string name="ecuador_channel_id">channel.id.notification.ecuador</string>
+    <string name="ecuador_channel_name">Ecuador</string>
 </resources>
