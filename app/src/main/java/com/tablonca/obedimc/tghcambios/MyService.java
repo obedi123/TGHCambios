@@ -36,7 +36,7 @@ public class MyService extends FirebaseMessagingService {
         float nt = Float.valueOf(ntStr != null ? ntStr : "0");
 
 
-        Intent intent = new Intent(this, WebActivity.class);
+        Intent intent = new Intent(this, HomeActivity.class);
         intent.putExtra(NUEVA_TASA, nt);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
