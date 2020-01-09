@@ -1,8 +1,16 @@
 package com.tablonca.obedimc.tghcambios;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.ProgressDialog;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -14,8 +22,8 @@ import android.os.Environment;
 import android.os.Parcelable;
 import android.provider.MediaStore;
 import android.util.Log;
-import android.view.View;
 
+import androidx.annotation.NonNull;
 import androidx.core.view.GravityCompat;
 import androidx.appcompat.app.ActionBarDrawerToggle;
 
@@ -27,8 +35,9 @@ import androidx.drawerlayout.widget.DrawerLayout;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
-import android.view.Menu;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -40,12 +49,21 @@ import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Locale;
 
 import static android.content.ContentValues.TAG;
+import static com.tablonca.obedimc.tghcambios.MyService.STR_KEY;
+import static com.tablonca.obedimc.tghcambios.MyService.STR_MESSAGE;
+import static com.tablonca.obedimc.tghcambios.MyService.STR_PUSH;
 
 public class HomeActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
+
     WebView webView;
+
+    private BroadcastReceiver mRegistrationBroadcastReceiver;
+
+    SwipeRefreshLayout srwebView;
     private ValueCallback<Uri> mUploadMessage;
     private Uri mCapturedImageURI = null;
     private ValueCallback<Uri[]> mFilePathCallback;
@@ -53,14 +71,16 @@ public class HomeActivity extends AppCompatActivity
     private static final int INPUT_FILE_REQUEST_CODE = 1;
     private static final int FILECHOOSER_RESULTCODE = 1;
 
+    @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
         final ProgressDialog pd = ProgressDialog.show(this, "", "Cargando...", true);
 
-        webView = (WebView) findViewById(R.id.webView);
-        webView.getSettings().setPluginState(WebSettings.PluginState.OFF);
+        srwebView = findViewById(R.id.StoR);
+
+        webView = findViewById(R.id.webView);
         webView.getSettings().setLoadWithOverviewMode(true);
         webView.getSettings().setCacheMode(WebSettings.LOAD_DEFAULT);
         webView.getSettings().setUseWideViewPort(true);
@@ -74,6 +94,7 @@ public class HomeActivity extends AppCompatActivity
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
+                srwebView.setRefreshing(false);
                 if (pd != null && pd.isShowing()) {
                     pd.dismiss();
                 }
@@ -81,16 +102,9 @@ public class HomeActivity extends AppCompatActivity
         });
         webView.loadUrl("https://www.tghcambios.com/");
         webView.setWebChromeClient(new ChromeClient());
+
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-        FloatingActionButton fab = findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
-            }
-        });
         DrawerLayout drawer = findViewById(R.id.drawer_layout);
         NavigationView navigationView = findViewById(R.id.nav_view);
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
@@ -98,6 +112,73 @@ public class HomeActivity extends AppCompatActivity
         drawer.addDrawerListener(toggle);
         toggle.syncState();
         navigationView.setNavigationItemSelectedListener(this);
+
+        srwebView.setOnRefreshListener(() -> webView.reload());
+
+        mRegistrationBroadcastReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (intent.getAction().equals(STR_PUSH)) {
+                    String message = intent.getStringExtra(STR_MESSAGE);
+                    showNotification("Nueva Tasa", message);
+                }
+            }
+        };
+
+        onNewIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        webView.loadUrl(intent.getStringExtra(STR_KEY));
+    }
+
+    private void showNotification(String title, String message) {
+        Intent intent = new Intent(getBaseContext(), HomeActivity.class);
+        intent.putExtra(STR_KEY, message);
+        intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent contentIntent = PendingIntent.getActivity(getBaseContext(), 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+        Notification.Builder builder = new Notification.Builder(getBaseContext());
+        builder.setAutoCancel(true)
+                .setWhen(System.currentTimeMillis())
+                .setDefaults(Notification.DEFAULT_ALL)
+                .setSmallIcon(R.drawable.ic_stat_name)
+                .setContentTitle(title)
+                .setContentText(message)
+                .setContentIntent(contentIntent);
+        NotificationManager notificationManager = (NotificationManager)getBaseContext().getSystemService(Context.NOTIFICATION_SERVICE);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            String channelId = getString(R.string.normal_channel_id);
+            String channelName = getString(R.string.normal_channel_name);
+            NotificationChannel channel = new NotificationChannel(channelId, channelName,
+                    NotificationManager.IMPORTANCE_DEFAULT);
+            channel.enableVibration(true);
+            channel.setVibrationPattern(new long[]{100, 200, 200, 50});
+            if (notificationManager != null) {
+                notificationManager.createNotificationChannel(channel);
+            }
+
+            builder.setChannelId(channelId);
+        }
+
+        if (notificationManager !=null) {
+            notificationManager.notify("", 0, builder.build());
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(mRegistrationBroadcastReceiver);
+        super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        LocalBroadcastManager.getInstance(this).registerReceiver(mRegistrationBroadcastReceiver, new IntentFilter("registrationComplete"));
+        LocalBroadcastManager.getInstance(this).registerReceiver(mRegistrationBroadcastReceiver, new IntentFilter(STR_PUSH));
     }
 
     @Override
@@ -111,25 +192,61 @@ public class HomeActivity extends AppCompatActivity
     }
 
 
-
-    @SuppressWarnings("StatementWithEmptyBody")
     @Override
-    public boolean onNavigationItemSelected(MenuItem item) {
+    public boolean onNavigationItemSelected(@NonNull MenuItem item) {
         // Handle navigation view item clicks here.
         int id = item.getItemId();
 
         if (id == R.id.nav_home) {
-            // Handle the camera action
-        } else if (id == R.id.nav_gallery) {
+            final ProgressDialog pd = ProgressDialog.show(this, "", "Cargando...", true);
+            webView.setWebViewClient(new WebViewClient() {
+                @Override
+                public void onPageFinished(WebView view, String url) {
+                    if (pd != null && pd.isShowing()) {
+                        pd.dismiss();
+                    }
+                }
+            });
+            webView.loadUrl("https://www.tghcambios.com/");
+        } else if (id == R.id.nav_peru) {
+            final ProgressDialog pd = ProgressDialog.show(this, "", "Cargando...", true);
+            webView.setWebViewClient(new WebViewClient() {
+                @Override
+                public void onPageFinished(WebView view, String url) {
+                    if (pd != null && pd.isShowing()) {
+                        pd.dismiss();
+                    }
+                }
+            });
+            webView.loadUrl("https://www.tghcambios.com/paises/peru/");
+        } else if (id == R.id.nav_colombia) {
+            final ProgressDialog pd = ProgressDialog.show(this, "", "Cargando...", true);
+            webView.setWebViewClient(new WebViewClient() {
+                @Override
+                public void onPageFinished(WebView view, String url) {
+                    if (pd != null && pd.isShowing()) {
+                        pd.dismiss();
+                    }
+                }
+            });
+            webView.loadUrl("https://www.tghcambios.com/paises/colombia/");
+        } else if (id == R.id.nav_ecuador) {
+            final ProgressDialog pd = ProgressDialog.show(this, "", "Cargando...", true);
+            webView.setWebViewClient(new WebViewClient() {
+                @Override
+                public void onPageFinished(WebView view, String url) {
+                    if (pd != null && pd.isShowing()) {
+                        pd.dismiss();
+                    }
+                }
+            });
+            webView.loadUrl("https://www.tghcambios.com/paises/ecuador/");
 
-        } else if (id == R.id.nav_slideshow) {
-
-        } else if (id == R.id.nav_tools) {
-
-        } else if (id == R.id.nav_share) {
-
-        } else if (id == R.id.nav_send) {
-
+        } else if (id == R.id.nav_notifications) {
+            Intent intent = new Intent(HomeActivity.this,  NotificationActivity.class);
+            startActivity(intent);
+        } else if (id == R.id.nav_exit) {
+            super.onBackPressed();
         }
 
         DrawerLayout drawer = findViewById(R.id.drawer_layout);
@@ -138,16 +255,15 @@ public class HomeActivity extends AppCompatActivity
     }
     private File createImageFile() throws IOException {
         // Create an image file name
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
         String imageFileName = "JPEG_" + timeStamp + "_";
         File storageDir = Environment.getExternalStoragePublicDirectory(
                 Environment.DIRECTORY_PICTURES);
-        File imageFile = File.createTempFile(
+        return File.createTempFile(
                 imageFileName,  /* prefix */
                 ".jpg",         /* suffix */
                 storageDir      /* directory */
         );
-        return imageFile;
     }
 
     public class ChromeClient extends WebChromeClient {
@@ -169,7 +285,7 @@ public class HomeActivity extends AppCompatActivity
                     takePictureIntent.putExtra("PhotoPath", mCameraPhotoPath);
                 } catch (IOException ex) {
                     // Error occurred while creating the File
-                    Log.e(TAG, "Unable to create Image File", ex);
+                    Log.e(TAG, "No se pudo crear el archivo de imagen.", ex);
                 }
 
                 // Continue only if the File was successfully created
@@ -205,7 +321,7 @@ public class HomeActivity extends AppCompatActivity
         }
 
         // openFileChooser for Android 3.0+
-        public void openFileChooser(ValueCallback<Uri> uploadMsg, String acceptType) {
+        void openFileChooser(ValueCallback<Uri> uploadMsg, String acceptType) {
 
             mUploadMessage = uploadMsg;
             // Create AndroidExampleFolder at sdcard
@@ -214,7 +330,7 @@ public class HomeActivity extends AppCompatActivity
             File imageStorageDir = new File(
                     Environment.getExternalStoragePublicDirectory(
                             Environment.DIRECTORY_PICTURES)
-                    , "AndroidExampleFolder");
+                    , "Capturas TGH");
 
             if (!imageStorageDir.exists()) {
                 // Create AndroidExampleFolder at sdcard
@@ -224,7 +340,7 @@ public class HomeActivity extends AppCompatActivity
             // Create camera captured image file path and name
             File file = new File(
                     imageStorageDir + File.separator + "IMG_"
-                            + String.valueOf(System.currentTimeMillis())
+                            + System.currentTimeMillis()
                             + ".jpg");
 
             mCapturedImageURI = Uri.fromFile(file);
@@ -330,6 +446,5 @@ public class HomeActivity extends AppCompatActivity
 
             }
         }
-        return;
     }
 }

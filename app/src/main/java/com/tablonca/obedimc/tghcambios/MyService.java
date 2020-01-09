@@ -12,6 +12,7 @@ import android.os.Build;
 import android.util.Log;
 
 import androidx.core.content.ContextCompat;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
@@ -19,16 +20,26 @@ import com.google.firebase.messaging.RemoteMessage;
 public class MyService extends FirebaseMessagingService {
     private static final String NUEVA_TASA = "Nueva Tasa";
 
+    public static final String STR_KEY = "webURL";
+    public static final String STR_PUSH = "pushNotification";
+    public static final String STR_MESSAGE = "message";
+
     public MyService() {
     }
 
     @Override
     public void onMessageReceived(RemoteMessage remoteMessage) {
-        super.onMessageReceived(remoteMessage);
+        handleMessage(remoteMessage.getData().get(STR_KEY));
 
         if (remoteMessage.getData().size() > 0 && remoteMessage.getNotification() != null) {
             sendNotification(remoteMessage);
         }
+    }
+
+    private void handleMessage(String message) {
+        Intent pushNotification = new Intent(STR_PUSH);
+        pushNotification.putExtra(STR_MESSAGE, message);
+        LocalBroadcastManager.getInstance(this).sendBroadcast(pushNotification);
     }
 
     private void sendNotification(RemoteMessage remoteMessage) {
@@ -38,10 +49,9 @@ public class MyService extends FirebaseMessagingService {
 
         Intent intent = new Intent(this, HomeActivity.class);
         intent.putExtra(NUEVA_TASA, nt);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent,
-                PendingIntent.FLAG_ONE_SHOT);
+        PendingIntent pendingIntent = PendingIntent.getActivity(getBaseContext(), 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
 
         NotificationManager notificationManager =
                 (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
@@ -65,7 +75,7 @@ public class MyService extends FirebaseMessagingService {
             }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                String channelId = null;
+                String channelId = getString(R.string.normal_channel_id);
                 if (nt == 1) {
                     channelId = getString(R.string.peru_channel_id);
                 } else if (nt == 2) {
@@ -73,7 +83,7 @@ public class MyService extends FirebaseMessagingService {
                 } else if (nt == 3) {
                     channelId = getString(R.string.ecuador_channel_id);
                 }
-                String channelName = null;
+                String channelName = getString(R.string.normal_channel_name);
                 if (nt == 1) {
                     channelName = getString(R.string.peru_channel_name);
                 } else if (nt == 2) {
